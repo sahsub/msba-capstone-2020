@@ -1,0 +1,1 @@
+This folder should eventually look like example_scripts. Main buildout of the pipeline happens here.

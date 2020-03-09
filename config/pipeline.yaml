@@ -1,0 +1,267 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+
+# TODO: Update everything and remove unnecesary config.
+
+# Configuration for running the complete pipeline including modeling and eval.
+
+# Absolute paths to non-code resources.
+file_paths:
+  queries: "/home/jupyter/demand-forecasting-mvm/queries"
+  automl_service_account_key: "/home/jupyter/.oauth_keys/automl_service_account_key.json"
+
+
+# Global config used by multiple pipelie steps. Also made available
+# as parameters to all SQL queries.
+global:
+  # Project and dataset configuration.
+  project_id: "PROJECT_ID_GOES_HERE"
+
+  # Clean data, minor refined versions of provided data.
+  source_dataset: "CFPB data wherever it is cloud-public-data.something.something?"
+  # Probably also want a dataset where NLP API is written, and a dataset
+  # of all the features joined together.
+
+  # Output tables for predictions and failed predictions from the batch
+  # prediction job, ex. numeric column recieved a string.
+  predictions_table: "Predictions"
+  failed_predictions_table: "FailedPredictions"
+  
+  # Eval?
+  eval_table: "Evaluation"
+  eval_metrics_table: "EvaluationMetrics"
+
+  # AutoML Parameters. It is assumed that no other datasets or models have
+  # been created with these names, or the pipeline will fail. They can be
+  # deleted using the client, or the UI.
+  dataset_display_name: "CFPBDataset"
+  model_display_name: "CFPBModel"
+  automl_compute_region: "us-central1"
+
+  # Final model will be trained on test data, metrics are currently based
+  # on the predict split instead. AutoML Requires at least one row of test data,
+
+# MSBA Team: I've removed these files, but this is a general idea of how 
+#   queries in the pipeline could be specified.
+# Files with templated queries, in file_paths.queries.
+query_files:
+  # Probably a query to add in the NLP API features?
+  combine_NLP_features: "something.sql"
+  # Probably a query to do a train/test split?
+  train_eval_split: "split.sql"
+  # Probably a calculation of some domain-specific eval?
+  eval: "eval.sql"
+
+# MSBA team: This is a section of the config for individual paremeters
+#  substituted into SQL queries.
+# Parameters specific to individual SQL pipeline steps.
+query_params:
+
+  # We can probably make the category cleanup work as SQL paramteres, where
+  # one cleanup step is "To" values and from values
+  category_cleanup:
+    first_cleanup:
+      from: "bad_category1, bad_category2, bad_category3"
+      to: "clean_category"
+    second_cleanup:
+      from: ""
+      to: ""
+  subcategory_cleanup:
+    blah:
+
+
+# Training parameters for the model.
+model:
+  # See https://cloud.google.com/automl-tables/docs/train for more details
+  # Training objective and maximum train time, early stopping is enabled.
+  train_budget_hours: 3
+  # This probably needs to change.
+  optimization_objective: "MINIMIZE_RMSE"
+  
+  # See https://cloud.google.com/automl-tables/docs/prepare for more details on
+  # the target and split columns.
+  # Target column to predict, historical values used.
+  target_column: "sls_qty"
+  # Split dataset into training, validation, and test.
+  split_column: "split"
+
+  # Columns in dataset to exclude from training, will still appear in prediction.
+  # Target (model.target_column), Split (model.split_column), Weight (unused),
+  # and Key column (defined below in columns) must be in the
+  # exclude_columns list or create_model will raise an exception.
+  exclude_columns:
+    - "cc_key"
+    - "loc_key"
+    - "sls_qty"
+    - "split"
+    - "weight"
+    - "id"
+  # MSBA team: here is how some parameters for an automl forecasting 
+  #   model was defined. General eaxample of type code will be important.
+  #   forecasting type doesn't matter for us.
+  # Define the data type, nullability, and forecasting type for every column.
+  # Values for type_code: "CATEGORY", "STRING", "FLOAT64", "TIMESTAMP".
+  # Values for forecasting_type:
+  #  "KEY" unique identifier for each time series,
+  #      ex. the concatenation of cc and loc keys.
+  #      Each dataset must have exactly one "KEY" column.
+  #  "KEY_METADATA" time independent attributes of time series,
+  # .    ex. color family description, store sales floor square footage.
+  #  "TIME_SERIES_AVAILABLE_PAST_ONLY" time dependent, only history available,
+  #      ex. available inventory, average retail sales price.
+  #  "TIME_SERIES_AVAILABLE_PAST_AND_FUTURE" time dep known for forecast horizon.
+  #      ex. holiday, planned promotion.
+  columns:
+
+    "bld_loc_desc":
+      type_code: "CATEGORY"
+      nullable: false
+      forecasting_type: "KEY_METADATA"
+
+    "brd_cls_desc":
+      type_code: "CATEGORY"
+      nullable: false
+      forecasting_type: "KEY_METADATA"
+
+    "brd_scls_desc":
+      type_code: "CATEGORY"
+      nullable: false
+      forecasting_type: "KEY_METADATA"
+
+    "cc_key":
+      type_code: "CATEGORY"
+      nullable: false
+      forecasting_type: "KEY_METADATA"
+
+    "cc_rtl_sls_prc_amt":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "cc_sls_qty":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "clr_fmy_desc":
+      type_code: "CATEGORY"
+      nullable: false
+      forecasting_type: "KEY_METADATA"
+
+    "dnrm_cur_rtl_prc_amt":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "dnrm_orig_rtl_prc_amt":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "KEY_METADATA"
+
+    "end_aval_inv_qty":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "end_ixit_un_qty":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "id":
+      type_code: "CATEGORY"
+      nullable: false
+      forecasting_type: "KEY"
+
+    "itm_shrt_desc":
+      type_code: "STRING"
+      nullable: false
+      forecasting_type: "KEY_METADATA"
+
+    "loc_key":
+      type_code: "CATEGORY"
+      nullable: false
+      forecasting_type: "KEY_METADATA"
+
+    "loc_sls_qty":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "mstk_un_qty":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "neg_sls_qty":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "pos_sls_qty":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "rtl_sls_prc_amt":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "scls_loc_sls_qty":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "sku_count":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "sls_qty":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_ONLY"
+
+    "split":
+      type_code: "CATEGORY"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_AND_FUTURE"
+
+    "str_frmt_typ_cd_id":
+      type_code: "CATEGORY"
+      nullable: false
+      forecasting_type: "KEY_METADATA"
+
+    "tot_str_sls_area_qty":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "KEY_METADATA"
+
+    "weeks_aval":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_AND_FUTURE"
+
+    "weight":
+      type_code: "FLOAT64"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_AND_FUTURE"
+
+    "wk_start_dt":
+      type_code: "TIMESTAMP"
+      nullable: false
+      forecasting_type: "TIME_SERIES_AVAILABLE_PAST_AND_FUTURE"
