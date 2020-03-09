@@ -14,7 +14,7 @@
 """Runs SQL queries to reates Bigquery tables for training and prediction.
 
 MSBA Team: This file should call the NLP API logic (ok if in separate file),
-  write it to a table, then query the source data and combine it with the 
+  write it to a table, then query the source data and combine it with the
   NLP API information while cleaning and write to a new table for training/eval.
   Maybe also split that table into training and evaluation and write to a
   separate table? All the code in here can be deleted.
